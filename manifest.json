@@ -1,0 +1,64 @@
+{
+  "manifest_version": 1,
+  "type": "WebApp",
+  "meta": {
+      "name": "TuneLayer",
+      "author": "Costin Joldes",
+      "version": "0.1.0",
+      "minimum-overwolf-version": "0.168.0",
+      "description": "PC overlay application that allows users to control Spotify playback, browse playlists, and search for songs while in-game.",
+      "icon": "icons/icon_color_256.png",
+      "icon_gray": "icons/icon_gray_256.png",
+      "window_icon": "icons/icon_window_256.png"
+  },
+  "permissions": [
+      "Windows",
+      "Settings",
+      "WebRequest",
+      "Hotkeys"
+  ],
+  "data": {
+      "start_window": "background",
+      "windows": {
+          "background": {
+              "file": "js/background.js",
+              "is_background_page": true,
+              "wait_for_startup_termination": false
+          },
+          "overlay": {
+              "file": "html/overlay.html",
+              "transparent": true,
+              "resizable": false,
+              "show_in_taskbar": false,
+              "block_top_window_navigation": true,
+              "size": {
+                  "width": 350,
+                  "height": 100
+              },
+              "min_size": {
+                  "width": 300,
+                  "height": 80
+              },
+              "max_size": {
+                  "width": 450,
+                  "height": 600
+              },
+              "desktop_only": false,
+              "grab_keyboard_focus": false,
+              "native_window": false
+          }
+      },
+      "hotkeys": {
+          "toggle_overlay": {
+              "title": "Toggle Spotify Overlay",
+              "action-type": "custom",
+              "default": "Ctrl+Shift+S"
+          }
+      },
+      "url_protocol": {
+          "schemes": [
+              "overwolf-extension"
+           ]
+      }
+  }
+}
