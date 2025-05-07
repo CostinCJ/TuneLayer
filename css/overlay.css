@@ -1,0 +1,169 @@
+html {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    background-color: rgba(25, 25, 25, 0.85); /* Slightly darker and more opaque */
+    color: #e0e0e0; /* Softer white for general text */
+    margin: 0;
+    padding: 10px;
+    overflow: hidden; /* Prevent scrollbars if content overflows slightly */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%; /* Use percentage for Overwolf window */
+    box-sizing: border-box; /* Include padding in height calculation */
+    border-radius: 5px; /* Optional: rounded corners for the window */
+    /* border: 1px solid red; */ /* DEBUG REMOVED */
+}
+
+#app-container {
+    width: 100%;
+    max-width: 430px; /* Max width considering padding */
+    height: 100%; /* Allow app container to fill body */
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* justify-content: center; */ /* REMOVED - Let #auth-view handle its own vertical centering via flex-grow */
+    /* border: 1px solid lime; */ /* DEBUG REMOVED */
+}
+
+#auth-view, #main-view, #playlist-view, #search-view {
+    width: 100%;
+    padding: 20px; /* Increased padding */
+    box-sizing: border-box;
+    text-align: center; /* Kept for inline content within children if any */
+    /* border: 1px solid blue; */ /* DEBUG REMOVED */
+    display: flex; /* Make the view itself a flex container */
+    flex-direction: column; /* Stack its children (h1, button, p) vertically */
+    align-items: center; /* Center children horizontally */
+    justify-content: center; /* Center children vertically */
+    flex-grow: 1; /* Allow the active view to take up available space in app-container */
+}
+
+#auth-view h1 {
+    font-size: 26px; /* Increased font size */
+    font-weight: 600; /* Slightly less bold for a modern feel */
+    color: #ffffff; /* Brighter white for title */
+    margin: 0 0 25px 0; /* Increased bottom margin */
+    padding: 0;
+    line-height: 1.3;
+    text-align: center;
+    letter-spacing: 0.5px; /* Added letter spacing */
+}
+
+/* Styles for when main view is active */
+#main-view {
+    display: block; /* Example style */
+}
+
+button {
+    background-color: #1DB954; /* Spotify green */
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    margin: 10px 5px; /* Increased top/bottom margin for general buttons */
+    border-radius: 25px; /* More rounded */
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+button:hover {
+    background-color: #1ed760; /* Lighter green on hover */
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+button:active {
+    transform: translateY(0px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#login-button {
+    padding: 14px 30px; /* Increased padding */
+    font-size: 16px;    /* Increased font size */
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#auth-status {
+    margin-top: 20px; /* Increased top margin */
+    font-size: 15px;  /* Slightly larger */
+    color: #b3b3b3;   /* Softer gray */
+}
+
+#track-info {
+    margin-bottom: 10px;
+}
+
+#track-name {
+    font-size: 16px;
+    font-weight: bold;
+    margin: 0 0 5px 0;
+}
+
+#artist-name {
+    font-size: 14px;
+    color: #ccc;
+    margin: 0;
+}
+
+#controls button {
+    font-size: 18px; /* Make play/pause etc. a bit bigger */
+    padding: 8px 12px;
+}
+
+#volume-control-container {
+    width: 80%;
+    margin-top: 10px;
+}
+
+#volume-slider {
+    width: 100%;
+    cursor: pointer;
+}
+
+/* Basic Nav Styling */
+#navigation {
+    display: flex; /* Will be set to flex by JS when user is logged in */
+    justify-content: center;
+    padding: 5px 0;
+    background-color: rgba(0,0,0,0.2);
+    width: 100%;
+    position: absolute; /* Or fixed, depending on desired behavior */
+    bottom: 0; /* Example positioning */
+    left: 0;
+}
+
+#navigation button {
+    background-color: #555;
+    font-size: 12px;
+    padding: 8px 10px;
+}
+
+#navigation button:hover {
+    background-color: #777;
+}
+
+/* Search View Specifics (very basic) */
+#search-input {
+    padding: 8px;
+    margin-right: 5px;
+    border-radius: 15px;
+    border: 1px solid #555;
+    background-color: #333;
+    color: white;
+}
+
+#search-results {
+    margin-top: 10px;
+    text-align: left;
+}

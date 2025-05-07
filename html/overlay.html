@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TuneLayer Overlay</title>
+    <link rel="stylesheet" href="../css/overlay.css">
+</head>
+<body>
+    <div id="app-container">
+        <div id="auth-view">
+            <h1>Spotify Authentication</h1>
+            <button id="login-button">Login with Spotify</button>
+            <p id="auth-status">Please log in to continue.</p>
+        </div>
+
+        <div id="main-view" style="display: none;"> <!-- Initially hidden -->
+            <div id="track-info">
+                <p id="track-name">Track Name</p>
+                <p id="artist-name">Artist Name</p>
+            </div>
+            <div id="controls">
+                <button id="prev-button">⏮</button>
+                <button id="play-pause-button">⏯</button>
+                <button id="next-button">⏭</button>
+            </div>
+            <div id="volume-control-container">
+                <input type="range" id="volume-slider" min="0" max="100" value="50">
+            </div>
+            <!-- Placeholder for other views like playlist or search -->
+        </div>
+
+        <div id="playlist-view" style="display: none;">
+            <h2>Playlists</h2>
+            <!-- Playlist content will go here -->
+        </div>
+
+        <div id="search-view" style="display: none;">
+            <h2>Search</h2>
+            <input type="text" id="search-input" placeholder="Search for songs...">
+            <button id="search-submit-button">Search</button>
+            <div id="search-results">
+                <!-- Search results will go here -->
+            </div>
+        </div>
+
+        <nav id="navigation" style="display: none;"> <!-- Initially hidden -->
+            <button id="nav-main-view">Player</button>
+            <button id="nav-playlist-view">Playlists</button>
+            <button id="nav-search-view">Search</button>
+        </nav>
+    </div>
+    <script src="../js/overlay.js"></script>
+</body>
+</html>

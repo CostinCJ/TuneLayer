@@ -21,19 +21,20 @@
       "start_window": "background",
       "windows": {
           "background": {
-              "file": "js/background.js",
+              "file": "html/background.html",
               "is_background_page": true,
               "wait_for_startup_termination": false
           },
           "overlay": {
               "file": "html/overlay.html",
-              "transparent": true,
+              "transparent": false,
+              "start_visible": true,
               "resizable": false,
               "show_in_taskbar": false,
               "block_top_window_navigation": true,
               "size": {
-                  "width": 350,
-                  "height": 100
+                  "width": 430,
+                  "height": 500
               },
               "min_size": {
                   "width": 300,
@@ -45,7 +46,8 @@
               },
               "desktop_only": false,
               "grab_keyboard_focus": false,
-              "native_window": false
+              "native_window": false,
+              "display_affinity": "primary"
           }
       },
       "hotkeys": {

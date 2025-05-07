@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Auth Callback</title>
+    <style>
+        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f0f0f0; }
+        .container { text-align: center; padding: 20px; background-color: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        p { color: #555; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Processing Authentication...</h1>
+        <p id="callback-status">Please wait while we finalize your Spotify login.</p>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const statusElement = document.getElementById('callback-status');
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('code');
+            const error = params.get('error');
+            const state = params.get('state'); // Though we are not using state in this PKCE example, Spotify might return it.
+
+            if (error) {
+                statusElement.textContent = `Error during Spotify authentication: ${error}. You can close this window.`;
+                statusElement.className = 'error';
+                // Send error to background script
+                if (overwolf && overwolf.windows && overwolf.windows.getMainWindow) {
+                     overwolf.windows.getMainWindow().chrome.runtime.sendMessage(
+                        { id: 'spotify_auth_callback', data: { error: error } }
+                    );
+                } else {
+                    console.error("Overwolf API not available to send error message from callback.");
+                }
+            } else if (code) {
+                statusElement.textContent = 'Authentication successful! Processing...';
+                statusElement.className = 'success';
+                // Send code to background script
+                 if (overwolf && overwolf.windows && overwolf.windows.getMainWindow) {
+                    overwolf.windows.getMainWindow().chrome.runtime.sendMessage(
+                        { id: 'spotify_auth_callback', data: { code: code } },
+                        (response) => {
+                            if (chrome.runtime.lastError) {
+                                console.error("Callback: Error sending code to background:", chrome.runtime.lastError.message);
+                                statusElement.textContent = `Error communicating with the app: ${chrome.runtime.lastError.message}. Please try again or restart the app.`;
+                                statusElement.className = 'error';
+                            } else {
+                                console.log("Callback: Code sent to background, response:", response);
+                                // Optionally, close this window after a delay or based on response
+                                // For now, just inform the user.
+                                statusElement.textContent = 'Login processed! You can now close this window and return to the app.';
+                            }
+                        }
+                    );
+                } else {
+                    console.error("Overwolf API not available to send success message from callback.");
+                     statusElement.textContent = 'Could not communicate with the main application. Please ensure the TuneLayer app is running and try logging in again.';
+                     statusElement.className = 'error';
+                }
+            } else {
+                statusElement.textContent = 'Invalid callback state. No authorization code or error received. You can close this window.';
+                statusElement.className = 'error';
+            }
+
+            // Attempt to close the window automatically after a few seconds if successful
+            // This might be blocked by browser policies if not opened by script.
+            // if (code && !error) {
+            //     setTimeout(() => {
+            //         window.close();
+            //     }, 3000);
+            // }
+        });
+    </script>
+</body>
+</html>
