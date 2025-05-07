@@ -55,37 +55,67 @@ async function initiateLogin() {
 
 async function constructAndOpenAuthURL() {
     const codeVerifier = generateCodeVerifier();
-console.log("Before calling getExtensionSettings in constructAndOpenAuthURL. overwolf.settings:", overwolf.settings, "getExtensionSettings type:", typeof overwolf.settings.getExtensionSettings);
-    overwolf.settings.getExtensionSettings(res => {
-        if (res.status === 'success') {
-            let currentSettings = res.settings || {};
-            currentSettings.spotify_code_verifier = codeVerifier;
-            overwolf.settings.setExtensionSettings(currentSettings, setResult => {
-                if (setResult.status !== 'success') {
-                    console.error("Failed to store code_verifier using setExtensionSettings:", setResult.error);
-                    sendMessageToOverlay({ type: 'AUTH_ERROR', message: 'Failed to store internal auth data (set).' });
-                } else {
-                    console.log("spotify_code_verifier stored successfully.");
-                }
-            });
-        } else {
-            console.error("Failed to get current settings before storing code_verifier:", res.error);
-            sendMessageToOverlay({ type: 'AUTH_ERROR', message: 'Failed to store internal auth data (get).' });
+
+    // New check for settings API readiness
+    function proceedWithAuthURL() {
+        console.log("Attempting to access settings API in constructAndOpenAuthURL.");
+        if (!overwolf.settings || typeof overwolf.settings.getExtensionSettings !== 'function') {
+            console.error("constructAndOpenAuthURL: overwolf.settings.getExtensionSettings is not available. Retrying...");
+            // Retry after a short delay
+            setTimeout(proceedWithAuthURL, 500); // Retry after 500ms
+            return;
         }
-    });
 
-    const codeChallenge = await generateCodeChallenge(codeVerifier);
-    const authUrl = new URL("https://accounts.spotify.com/authorize");
-    authUrl.searchParams.append('client_id', SPOTIFY_CLIENT_ID);
-    authUrl.searchParams.append('response_type', 'code');
-    authUrl.searchParams.append('redirect_uri', SPOTIFY_REDIRECT_URI());
-    authUrl.searchParams.append('scope', SPOTIFY_SCOPES);
-    authUrl.searchParams.append('code_challenge_method', 'S256');
-    authUrl.searchParams.append('code_challenge', codeChallenge);
-    authUrl.searchParams.append('show_dialog', 'true');
+        console.log("Settings API seems available. Proceeding with getExtensionSettings.");
+        overwolf.settings.getExtensionSettings(res => {
+            // Store in localStorage as primary method due to potential settings persistence issues
+            try {
+                localStorage.setItem('spotify_code_verifier', codeVerifier);
+                console.log("spotify_code_verifier stored in localStorage.");
+            } catch (e) {
+                 console.error("Error storing code_verifier in localStorage:", e);
+                 sendMessageToOverlay({ type: 'AUTH_ERROR', message: 'Failed to store internal auth data (localStorage).' });
+                 // Optionally, decide if you should abort the auth flow here
+            }
 
-    console.log("Opening Spotify Auth URL:", authUrl.toString());
-    overwolf.utils.openUrlInDefaultBrowser(authUrl.toString());
+            // Also attempt to store in overwolf.settings as a backup/future-proofing
+            if (res.success === true) {
+                let currentSettings = res.settings || {};
+                currentSettings.spotify_code_verifier = codeVerifier; // Add it to settings object
+                overwolf.settings.setExtensionSettings(currentSettings, setResult => {
+                    if (setResult.status !== 'success' && setResult.success !== true) {
+                        console.warn("Warning: Failed to store code_verifier using setExtensionSettings. Full response:", JSON.stringify(setResult));
+                        // Don't send error to overlay here, as localStorage is primary
+                    } else {
+                        console.log("spotify_code_verifier also stored successfully via setExtensionSettings.");
+                    }
+                });
+            } else {
+                 console.warn("Warning: Failed to get current settings before attempting to store code_verifier via setExtensionSettings. Full response:", JSON.stringify(res));
+                 // Don't send error to overlay here
+            }
+        });
+
+        generateCodeChallenge(codeVerifier).then(codeChallenge => {
+            const authUrl = new URL("https://accounts.spotify.com/authorize");
+            authUrl.searchParams.append('client_id', SPOTIFY_CLIENT_ID);
+            authUrl.searchParams.append('response_type', 'code');
+            authUrl.searchParams.append('redirect_uri', SPOTIFY_REDIRECT_URI());
+            authUrl.searchParams.append('scope', SPOTIFY_SCOPES);
+            authUrl.searchParams.append('code_challenge_method', 'S256');
+            authUrl.searchParams.append('code_challenge', codeChallenge);
+            authUrl.searchParams.append('show_dialog', 'true');
+
+            console.log("Opening Spotify Auth URL:", authUrl.toString());
+            overwolf.utils.openUrlInDefaultBrowser(authUrl.toString());
+        }).catch(error => {
+            console.error("Error generating code challenge:", error);
+            sendMessageToOverlay({ type: 'AUTH_ERROR', message: 'Failed to generate code challenge.' });
+        });
+    }
+
+    // Start the process
+    proceedWithAuthURL();
 }
 
 function sendMessageToOverlay(message) {
@@ -137,14 +167,25 @@ function sendMessageToOverlay(message) {
 }
 
 async function exchangeCodeForToken(authCode) {
-    overwolf.settings.getExtensionSettings(async (resGetVerifier) => {
-        if (resGetVerifier.status !== 'success' || !resGetVerifier.settings || !resGetVerifier.settings.spotify_code_verifier) {
-            console.error("Failed to retrieve code_verifier for token exchange using getExtensionSettings:", resGetVerifier.error || "Verifier not found in settings");
+    async function proceedWithTokenExchange() {
+        console.log("Attempting to retrieve code_verifier from localStorage in exchangeCodeForToken.");
+        let codeVerifier = null;
+        try {
+            codeVerifier = localStorage.getItem('spotify_code_verifier');
+        } catch (e) {
+            console.error("Error retrieving code_verifier from localStorage:", e);
+            sendMessageToOverlay({ type: 'AUTH_ERROR', message: 'Internal error during token exchange (localStorage read failed).' });
+            return;
+        }
+
+        if (!codeVerifier) {
+            console.error("Failed to retrieve code_verifier for token exchange from localStorage: Verifier not found.");
             sendMessageToOverlay({ type: 'AUTH_ERROR', message: 'Internal error during token exchange (missing verifier).' });
             return;
         }
-        const codeVerifier = resGetVerifier.settings.spotify_code_verifier;
-        const initialSettings = resGetVerifier.settings; // Keep a reference to potentially update
+
+        console.log("Retrieved code_verifier from localStorage:", codeVerifier);
+
         const tokenUrl = "https://accounts.spotify.com/api/token";
         const payload = {
             method: 'POST',
@@ -164,31 +205,60 @@ async function exchangeCodeForToken(authCode) {
             if (!response.ok) {
                 console.error("Error exchanging code for token:", data);
                 sendMessageToOverlay({ type: 'AUTH_ERROR', message: `Token exchange failed: ${data.error_description || data.error || 'Unknown error'}` });
+                 // Clean up verifier from localStorage even on failure
+                localStorage.removeItem('spotify_code_verifier');
+                console.log("Cleaned up spotify_code_verifier from localStorage after failed token exchange.");
                 return;
             }
             console.log("Tokens received:", data);
             const now = Math.floor(Date.now() / 1000);
             const accessTokenExpiry = now + data.expires_in;
-            // Update settings object with new tokens
-            let updatedSettings = { ...initialSettings }; // Start with existing settings
-            updatedSettings.spotify_access_token = data.access_token;
-            updatedSettings.spotify_refresh_token = data.refresh_token;
-            updatedSettings.spotify_token_expiry = accessTokenExpiry.toString();
 
-            overwolf.settings.setExtensionSettings(updatedSettings, setTokenResult => {
-                if (setTokenResult.status === 'success') {
-                    console.log("Spotify authentication successful. Tokens stored via setExtensionSettings.");
-                    sendMessageToOverlay({ type: 'AUTH_SUCCESS', message: 'Successfully logged in to Spotify!' });
-                } else {
-                    console.error("Failed to store tokens using setExtensionSettings:", setTokenResult.error);
-                    sendMessageToOverlay({ type: 'AUTH_ERROR', message: 'Failed to save session tokens.' });
-                }
-            });
+            // Now, get current settings to ADD tokens, keeping existing settings
+             console.log("Attempting to get current settings via getExtensionSettings before storing tokens.");
+             overwolf.settings.getExtensionSettings(settingsResult => {
+                 let updatedSettings = {};
+                 if (settingsResult.success === true && settingsResult.settings) {
+                     updatedSettings = { ...settingsResult.settings }; // Start with existing settings
+                     console.log("Successfully retrieved existing settings:", JSON.stringify(updatedSettings));
+                 } else {
+                     console.warn("Could not retrieve existing settings before storing tokens. Starting with empty settings object. Response:", JSON.stringify(settingsResult));
+                 }
+
+                 // Add new tokens and expiry
+                 updatedSettings.spotify_access_token = data.access_token;
+                 updatedSettings.spotify_refresh_token = data.refresh_token;
+                 updatedSettings.spotify_token_expiry = accessTokenExpiry.toString();
+                 // Clean up verifier from settings if it somehow got there
+                 delete updatedSettings.spotify_code_verifier;
+
+                 console.log("Attempting to store tokens via setExtensionSettings. Settings to save:", JSON.stringify(updatedSettings));
+                 overwolf.settings.setExtensionSettings(updatedSettings, setTokenResult => {
+                     if (setTokenResult.status === 'success' || setTokenResult.success === true) { // Check both possibilities
+                         console.log("Spotify authentication successful. Tokens stored via setExtensionSettings.");
+                         sendMessageToOverlay({ type: 'AUTH_SUCCESS', message: 'Successfully logged in to Spotify!' });
+                         // Clean up verifier from localStorage ONLY on successful token storage
+                         localStorage.removeItem('spotify_code_verifier');
+                         console.log("Cleaned up spotify_code_verifier from localStorage after successful token storage.");
+                     } else {
+                         console.error("Failed to store tokens using setExtensionSettings. Full response:", JSON.stringify(setTokenResult));
+                         sendMessageToOverlay({ type: 'AUTH_ERROR', message: 'Failed to save session tokens.' });
+                         // Consider if you should also remove from localStorage here, maybe not?
+                     }
+                 });
+             });
+
         } catch (error) {
             console.error("Network error during token exchange:", error);
             sendMessageToOverlay({ type: 'AUTH_ERROR', message: `Network error during token exchange: ${error.message}` });
+             // Clean up verifier from localStorage on network error
+            localStorage.removeItem('spotify_code_verifier');
+            console.log("Cleaned up spotify_code_verifier from localStorage after network error during token exchange.");
         }
-    });
+    }
+
+    // Start the process
+    proceedWithTokenExchange();
 }
 
 function initializeAppUID() {
@@ -217,25 +287,35 @@ function initializeAppUID() {
 }
 
 function checkInitialAuthState() {
-    if (!overwolf.settings || typeof overwolf.settings.getExtensionSettings !== 'function') {
-        console.error("checkInitialAuthState: overwolf.settings.getExtensionSettings is not available. Aborting auth check.");
-        sendMessageToOverlay({ type: 'AUTH_ERROR', message: 'Critical API error: Cannot access settings (getExtensionSettings).' });
-        return;
-    }
-console.log("Before calling getExtensionSettings in checkInitialAuthState. overwolf.settings:", overwolf.settings, "getExtensionSettings type:", typeof overwolf.settings.getExtensionSettings);
-    overwolf.settings.getExtensionSettings(result => {
-        if (result.status === 'success' && result.settings && result.settings.spotify_access_token) {
-            // Potentially check token expiry here using result.settings.spotify_token_expiry
-            console.log("User seems to be logged in. Access token found via getExtensionSettings.");
-            sendMessageToOverlay({ type: 'AUTH_STATUS_KNOWN', loggedIn: true, message: 'Logged in.' });
-        } else {
-            if (result.status !== 'success') {
-                console.error("Failed to get extension settings for auth check. Status:", result.status, "Details:", result.error || "No error details provided");
-            }
-            console.log("User not logged in or no stored access token (getExtensionSettings). Result status:", result.status);
-            sendMessageToOverlay({ type: 'AUTH_STATUS_KNOWN', loggedIn: false, message: 'Please log in to Spotify.' });
+    // New check for settings API readiness
+    function proceedWithAuthCheck() {
+        console.log("Attempting to access settings API in checkInitialAuthState.");
+        if (!overwolf.settings || typeof overwolf.settings.getExtensionSettings !== 'function') {
+            console.error("checkInitialAuthState: overwolf.settings.getExtensionSettings is not available. Retrying...");
+            // Retry after a short delay
+            setTimeout(proceedWithAuthCheck, 500); // Retry after 500ms
+            return;
         }
-    });
+
+        console.log("Settings API seems available. Proceeding with getExtensionSettings for auth check.");
+        overwolf.settings.getExtensionSettings(result => {
+            if (result.success === true && result.settings && result.settings.spotify_access_token) {
+                // Potentially check token expiry here using result.settings.spotify_token_expiry
+                console.log("User seems to be logged in. Access token found via getExtensionSettings. Settings:", JSON.stringify(result.settings));
+                sendMessageToOverlay({ type: 'AUTH_STATUS_KNOWN', loggedIn: true, message: 'Logged in.' });
+            } else {
+                if (result.success !== true) { // If the call itself failed (not just missing token)
+                    console.error("Failed to get extension settings for auth check (API call unsuccessful). Full response:", JSON.stringify(result));
+                }
+                // This will now log true if API call was ok but token missing, or false/undefined if API call failed
+                console.log("User not logged in or no stored access token. API success:", result.success, "Settings content:", JSON.stringify(result.settings));
+                sendMessageToOverlay({ type: 'AUTH_STATUS_KNOWN', loggedIn: false, message: 'Please log in to Spotify.' });
+            }
+        });
+    }
+
+    // Start the process
+    proceedWithAuthCheck();
 }
 
 function toggleOverlayWindow() {
@@ -364,8 +444,63 @@ if (overwolf.extensions) {
 
 try {
     overwolf.extensions.onAppLaunchTriggered.addListener(e => {
-        console.log("onAppLaunchTriggered event received:", e);
-        startAppLogic();
+        console.log("onAppLaunchTriggered event received:", JSON.stringify(e, null, 2)); // Log the full event object
+        
+        // Attempt to parse the auth code from the launch event
+        let authCode = null;
+        let potentialUrl = null;
+        let decodedParameter = null;
+
+        if (e && typeof e.parameter === 'string') {
+            try {
+                decodedParameter = decodeURIComponent(e.parameter);
+                console.log("Decoded e.parameter:", decodedParameter);
+            } catch (decodeError) {
+                console.error("Error decoding e.parameter:", decodeError, "Original was:", e.parameter);
+            }
+        }
+
+        if (decodedParameter && decodedParameter.includes('html/callback.html?code=')) {
+            potentialUrl = decodedParameter;
+        } else if (e && typeof e.origin === 'string' && e.origin.includes('html/callback.html?code=')) {
+            // This path is less likely given the logs, but keep as a fallback.
+            potentialUrl = e.origin;
+        }
+        // Add more checks here if Overwolf uses other properties like e.url or e.uri
+        // For example:
+        // else if (e && typeof e.url === 'string' && e.url.includes('html/callback.html?code=')) {
+        //     potentialUrl = e.url;
+        // }
+
+        if (potentialUrl) {
+            try {
+                const urlParams = new URLSearchParams(new URL(potentialUrl).search);
+                authCode = urlParams.get('code');
+            } catch (parseError) {
+                console.error("Error parsing code from onAppLaunchTriggered event URL:", parseError, "URL was:", potentialUrl);
+            }
+        }
+
+        if (authCode) {
+            console.log("Auth code extracted from onAppLaunchTriggered event:", authCode);
+            exchangeCodeForToken(authCode);
+        } else if (decodedParameter && decodedParameter.includes('html/callback.html?error=')) {
+            // Check for error in the decoded parameter
+            let errorMsg = 'Unknown error from callback';
+            try {
+                const urlParams = new URLSearchParams(new URL(decodedParameter).search);
+                errorMsg = urlParams.get('error');
+            } catch (parseError) {
+                console.error("Error parsing error from onAppLaunchTriggered event URL:", parseError, "URL was:", decodedParameter);
+            }
+            console.error("Error received in onAppLaunchTriggered event:", errorMsg);
+            sendMessageToOverlay({ type: 'AUTH_ERROR', message: `Spotify Auth Error: ${errorMsg}` });
+        } else {
+            // If no code/error in launch params, proceed with normal app startup/check
+            // This handles cases where the app is launched normally, not via auth callback
+            console.log("No auth code in onAppLaunchTriggered event, proceeding with normal startAppLogic.");
+            startAppLogic(); // Call this to ensure app initializes if not already
+        }
     });
     console.log("Successfully attempted to add onAppLaunchTriggered listener.");
 } catch (err) {

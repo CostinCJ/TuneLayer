@@ -48,6 +48,21 @@
               "grab_keyboard_focus": false,
               "native_window": false,
               "display_affinity": "primary"
+          },
+          "callback": {
+              "file": "html/callback.html",
+              "transparent": true,
+              "start_visible": false,
+              "resizable": false,
+              "show_in_taskbar": false,
+              "block_top_window_navigation": true,
+              "size": {
+                  "width": 100,
+                  "height": 100
+              },
+              "desktop_only": true,
+              "grab_keyboard_focus": false,
+              "native_window": false
           }
       },
       "hotkeys": {

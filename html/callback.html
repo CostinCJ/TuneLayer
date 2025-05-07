@@ -20,6 +20,7 @@
     </div>
 
     <script>
+        console.log("Callback script started."); // Added log
         document.addEventListener('DOMContentLoaded', () => {
             const statusElement = document.getElementById('callback-status');
             const params = new URLSearchParams(window.location.search);
@@ -62,7 +63,7 @@
                     console.error("Overwolf API not available to send success message from callback.");
                      statusElement.textContent = 'Could not communicate with the main application. Please ensure the TuneLayer app is running and try logging in again.';
                      statusElement.className = 'error';
-                }
+                 }
             } else {
                 statusElement.textContent = 'Invalid callback state. No authorization code or error received. You can close this window.';
                 statusElement.className = 'error';

@@ -54,18 +54,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Listen for messages from the background script
     overwolf.windows.onMessageReceived.addListener((message) => {
-        console.log("Overlay received message:", message);
-        if (message && message.name === "background_message") {
+        // Log the raw message first
+        console.log("Overlay received raw message:", JSON.stringify(message));
+
+        if (message && message.id === "background_message" && message.content) { // Check message.id instead of message.name
             const data = message.content;
+             // Log the parsed data content
+            console.log("Parsed message data:", JSON.stringify(data));
+            
             switch (data.type) {
                 case 'AUTH_SUCCESS':
-                    authStatusElement.textContent = data.message;
-                    authStatusElement.style.color = 'green';
-                    // Hide auth view, show main view
-                    authView.style.display = 'none';
-                    mainView.style.display = 'block'; // Or 'flex' depending on CSS
-                    navigation.style.display = 'flex'; // Show navigation
-                    // TODO: Request initial playback state
+                    console.log("Processing AUTH_SUCCESS message.");
+                    try {
+                        if (authStatusElement) {
+                            authStatusElement.textContent = data.message || 'Login Successful!';
+                            authStatusElement.style.color = 'green';
+                            console.log("Set authStatus text and color.");
+                        } else { console.error("authStatusElement not found!"); }
+
+                        if (authView) {
+                            authView.style.display = 'none';
+                            console.log("Set authView display to none.");
+                        } else { console.error("authView not found!"); }
+
+                        if (mainView) {
+                            mainView.style.display = 'flex'; // Use flex as internal layout uses flex properties
+                            console.log("Set mainView display to flex.");
+                        } else { console.error("mainView not found!"); }
+
+                        if (navigation) {
+                            navigation.style.display = 'flex'; // Show navigation
+                            console.log("Set navigation display to flex.");
+                        } else { console.error("navigation not found!"); }
+                        
+                        console.log("AUTH_SUCCESS processing complete.");
+                        // TODO: Request initial playback state
+                    } catch (uiError) {
+                        console.error("Error updating UI during AUTH_SUCCESS:", uiError);
+                    }
                     break;
                 case 'AUTH_ERROR':
                     authStatusElement.textContent = `Error: ${data.message}`;
@@ -75,20 +101,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     navigation.style.display = 'none';
                     break;
                 case 'AUTH_STATUS_KNOWN':
-                    authStatusElement.textContent = data.message;
-                    if (data.loggedIn) {
-                        authStatusElement.style.color = 'green';
-                        authView.style.display = 'none';
-                        mainView.style.display = 'block';
-                        navigation.style.display = 'flex';
-                         // TODO: Request initial playback state
-                    } else {
-                        authStatusElement.style.color = 'orange';
-                        authView.style.display = 'block';
-                        mainView.style.display = 'none';
-                        navigation.style.display = 'none';
-                    }
-                    break;
+                     console.log("Processing AUTH_STATUS_KNOWN message.");
+                     try {
+                         if (authStatusElement) {
+                             authStatusElement.textContent = data.message || (data.loggedIn ? 'Logged In' : 'Not Logged In');
+                         } else { console.error("authStatusElement not found!"); }
+
+                         if (data.loggedIn) {
+                             if(authStatusElement) authStatusElement.style.color = 'green';
+                             if(authView) authView.style.display = 'none'; else { console.error("authView not found!"); }
+                             if(mainView) mainView.style.display = 'flex'; else { console.error("mainView not found!"); }
+                             if(navigation) navigation.style.display = 'flex'; else { console.error("navigation not found!"); }
+                             console.log("UI updated for logged-in state.");
+                              // TODO: Request initial playback state
+                         } else {
+                             if(authStatusElement) authStatusElement.style.color = 'orange';
+                             if(authView) authView.style.display = 'block'; else { console.error("authView not found!"); } // Use block for auth view
+                             if(mainView) mainView.style.display = 'none'; else { console.error("mainView not found!"); }
+                             if(navigation) navigation.style.display = 'none'; else { console.error("navigation not found!"); }
+                             console.log("UI updated for logged-out state.");
+                         }
+                         console.log("AUTH_STATUS_KNOWN processing complete.");
+                     } catch (uiError) {
+                         console.error("Error updating UI during AUTH_STATUS_KNOWN:", uiError);
+                     }
+                     break;
                 default:
                     console.log("Received unhandled message type from background:", data.type);
             }

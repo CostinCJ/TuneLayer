@@ -38,11 +38,17 @@ body {
     box-sizing: border-box;
     text-align: center; /* Kept for inline content within children if any */
     /* border: 1px solid blue; */ /* DEBUG REMOVED */
-    display: flex; /* Make the view itself a flex container */
+    /* display: flex; */ /* REMOVED - Will be set by JS or default rule below */
     flex-direction: column; /* Stack its children (h1, button, p) vertically */
     align-items: center; /* Center children horizontally */
     justify-content: center; /* Center children vertically */
-    flex-grow: 1; /* Allow the active view to take up available space in app-container */
+    /* flex-grow: 1; */ /* REMOVED - Will be set by default rule below or JS */
+}
+
+/* Default state for the initial view */
+#auth-view {
+    display: flex;
+    flex-grow: 1;
 }
 
 #auth-view h1 {
@@ -56,10 +62,10 @@ body {
     letter-spacing: 0.5px; /* Added letter spacing */
 }
 
-/* Styles for when main view is active */
-#main-view {
-    display: block; /* Example style */
-}
+/* REMOVED - Redundant/conflicting rule */
+/* #main-view { */
+/*     display: block; */
+/* } */
 
 button {
     background-color: #1DB954; /* Spotify green */
